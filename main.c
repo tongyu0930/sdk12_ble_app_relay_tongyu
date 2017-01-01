@@ -57,6 +57,8 @@
 #define SCAN_SELECTIVE          0                               /**< If 1, ignore unknown devices (non whitelisted). */
 #define SCAN_TIMEOUT            0x0000                          /**< Timout when scanning. 0x0000 disables timeout. */
 
+volatile uint8_t ppp_data[31];
+
 static ble_gap_adv_params_t m_adv_params;                                 /**< Parameters to be passed to the stack when starting advertising. */
 
 
@@ -164,6 +166,8 @@ static bool is_uuid_present(const ble_gap_evt_adv_report_t *p_adv_report)
 					uint8_t field_data = p_data[a];
 					if(field_data == 0x61)
 					{
+						//ppp_data[31] = p_data;
+						//ppp_data[31]={0x1e,0xff,0x01,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x67,0xF7,0xDB,0x34,0xC4,0x03,0x8E,0x5C,0x0B,0xAA,0x97,0x30,0X56,0xE6};
 						return true;
 					}
 					a++;
@@ -193,6 +197,8 @@ static void on_ble_evt(ble_evt_t * p_ble_evt)
             if (is_uuid_present(p_adv_report))
             {
                 nrf_drv_gpiote_out_toggle(BSP_LED_3); // 自己加的 因为一只在scan mode上，所以闪一下就又换到scan闪烁状态了。
+                uint8_t const ppp_data[31]={0x1e,0xff,0x01,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x67,0xF7,0xDB,0x34,0xC4,0x03,0x8E,0x5C,0x0B,0xAA,0x97,0x30,0X56,0xE6};
+                sd_ble_gap_adv_data_set(ppp_data, sizeof(ppp_data), NULL, 0);
             }
             break;
         }
@@ -250,7 +256,7 @@ static void ble_stack_init(void)
 void in_pin_handler(nrf_drv_gpiote_pin_t pin, nrf_gpiote_polarity_t action) //这个东西就是当设置的input被激发时，所唤起的function
                                                                             //这里的“action”有三种actions，是哪一种啊？
 {
-    sd_ble_gap_adv_stop(); // 去掉这句话，按下按键，系统就会自动不断的切换广播和扫描。
+    //sd_ble_gap_adv_stop(); // 去掉这句话，按下按键，系统就会自动不断的切换广播和扫描。
     uint32_t err_code;
     err_code = sd_ble_gap_scan_start(&m_scan_params);
     APP_ERROR_CHECK(err_code);

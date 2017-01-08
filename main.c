@@ -57,7 +57,7 @@
 #define SCAN_SELECTIVE          0                               /**< If 1, ignore unknown devices (non whitelisted). */
 #define SCAN_TIMEOUT            0x0000                          /**< Timout when scanning. 0x0000 disables timeout. */
 
-volatile uint8_t ppp_data[31];
+//volatile uint8_t *ppp_data[31];
 
 static ble_gap_adv_params_t m_adv_params;                                 /**< Parameters to be passed to the stack when starting advertising. */
 
@@ -105,7 +105,7 @@ static void advertising_init(void)
 
     ble_advdata_manuf_data_t manuf_specific_data;
 
-    uint8_t data[] = "abcde"; // Our data to adverise。 scanner上显示的0x串中，最后是00，表示结束。
+    uint8_t data[] = "xxxxx"; // Our data to adverise。 scanner上显示的0x串中，最后是00，表示结束。
 
     manuf_specific_data.company_identifier = APP_COMPANY_IDENTIFIER;
     manuf_specific_data.data.p_data = data;
@@ -137,12 +137,12 @@ static void advertising_init(void)
 static void advertising_start(void)
 {
     uint32_t err_code;
-
-    err_code = sd_ble_gap_adv_start(&m_adv_params);
+    //uint8_t const pp_data[31]={0x1e,0xff,0x01,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x61,0x67,0xF7,0xDB,0x34,0xC4,0x03,0x8E,0x5C,0x0B,0xAA,0x97,0x30,0X56,0xE6};
+    err_code = sd_ble_gap_adv_start(&m_adv_params); // 括号里面的是个全局变量吗？
     APP_ERROR_CHECK(err_code);
 
-    err_code = bsp_indication_set(BSP_INDICATE_ADVERTISING);
-    APP_ERROR_CHECK(err_code);
+    //sd_ble_gap_adv_data_set(pp_data, sizeof(pp_data), NULL, 0); // 好像这句话在这里没有用。
+    //APP_ERROR_CHECK(err_code);
 }
 
 
@@ -150,6 +150,8 @@ static bool is_uuid_present(const ble_gap_evt_adv_report_t *p_adv_report)
 {
     uint32_t index = 0; //关于report详解，参见“BLE central tutorial”中scanning部分内容
     uint8_t *p_data = (uint8_t *)p_adv_report->data;
+
+    //ppp_data[31] = p_data;
 
     while (index < p_adv_report->dlen)
     {
@@ -166,8 +168,6 @@ static bool is_uuid_present(const ble_gap_evt_adv_report_t *p_adv_report)
 					uint8_t field_data = p_data[a];
 					if(field_data == 0x61)
 					{
-						//ppp_data[31] = p_data;
-						//ppp_data[31]={0x1e,0xff,0x01,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x67,0xF7,0xDB,0x34,0xC4,0x03,0x8E,0x5C,0x0B,0xAA,0x97,0x30,0X56,0xE6};
 						return true;
 					}
 					a++;
@@ -196,9 +196,9 @@ static void on_ble_evt(ble_evt_t * p_ble_evt)
 
             if (is_uuid_present(p_adv_report))
             {
-                nrf_drv_gpiote_out_toggle(BSP_LED_3); // 自己加的 因为一只在scan mode上，所以闪一下就又换到scan闪烁状态了。
-                uint8_t const ppp_data[31]={0x1e,0xff,0x01,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x67,0xF7,0xDB,0x34,0xC4,0x03,0x8E,0x5C,0x0B,0xAA,0x97,0x30,0X56,0xE6};
-                sd_ble_gap_adv_data_set(ppp_data, sizeof(ppp_data), NULL, 0);
+            	//uint8_t const pp_data[31] = ppp_data[31];
+            	//nrf_drv_gpiote_out_toggle(BSP_LED_3); // 自己加的 因为一只在scan mode上，所以闪一下就又换到scan闪烁状态了。
+                //sd_ble_gap_adv_data_set(ppp_data, sizeof(ppp_data), NULL, 0);
             }
             break;
         }
@@ -206,6 +206,45 @@ static void on_ble_evt(ble_evt_t * p_ble_evt)
         default:
             break;
     }
+}
+
+
+//自己加的
+void relay_adv_data(ble_evt_t * p_ble_evt)
+{
+	uint32_t index = 0;
+	uint8_t pp_data[31]={0x1e,0xff,0x01,0x00}; // 这个data必须是［31］
+	ble_gap_evt_t * p_gap_evt = &p_ble_evt->evt.gap_evt;
+	ble_gap_evt_adv_report_t * p_adv_report = &p_gap_evt->params.adv_report;
+	uint8_t *p_data = (uint8_t *)p_adv_report->data;
+	while (index < p_adv_report->dlen)
+	    {
+	        uint8_t field_length = p_data[index];
+	        uint8_t field_type   = p_data[index+1];
+
+				if ( field_type == BLE_GAP_AD_TYPE_MANUFACTURER_SPECIFIC_DATA)
+				{
+
+					uint8_t a=index+2;
+
+					while(a <= (index+field_length))
+					{
+						uint8_t field_data = p_data[a];
+						if(field_data == 0x61)
+						{
+							nrf_drv_gpiote_out_toggle(BSP_LED_3);
+							//sd_ble_gap_scan_stop();
+							sd_ble_gap_adv_data_set(pp_data, sizeof(pp_data), NULL, 0);
+						}
+						a++;
+					}
+				}
+
+	            index += field_length + 1;
+	    }
+
+	//sd_ble_gap_adv_data_set(p_data, sizeof(p_data), NULL, 0);
+
 }
 
 /**@brief Function for dispatching a BLE stack event to all modules with a BLE stack event handler.
@@ -218,6 +257,7 @@ static void on_ble_evt(ble_evt_t * p_ble_evt)
 static void ble_evt_dispatch(ble_evt_t * p_ble_evt)
 {
     on_ble_evt(p_ble_evt);
+    relay_adv_data(p_ble_evt);
 }
 
 
@@ -256,7 +296,7 @@ static void ble_stack_init(void)
 void in_pin_handler(nrf_drv_gpiote_pin_t pin, nrf_gpiote_polarity_t action) //这个东西就是当设置的input被激发时，所唤起的function
                                                                             //这里的“action”有三种actions，是哪一种啊？
 {
-    //sd_ble_gap_adv_stop(); // 去掉这句话，按下按键，系统就会自动不断的切换广播和扫描。
+    //sd_ble_gap_adv_stop(); // 如果去掉这句话，按下按键1，系统就会自动不断的切换广播和扫描。
     uint32_t err_code;
     err_code = sd_ble_gap_scan_start(&m_scan_params);
     APP_ERROR_CHECK(err_code);

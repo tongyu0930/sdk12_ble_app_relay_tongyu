@@ -35,7 +35,6 @@
 #include "app_error.h"
 
 
-
 #define CENTRAL_LINK_COUNT              0                                 /**< Number of central links used by the application. When changing this number remember to adjust the RAM settings*/
 #define PERIPHERAL_LINK_COUNT           0                                 /**< Number of peripheral links used by the application. When changing this number remember to adjust the RAM settings*/
 
@@ -92,6 +91,7 @@ void assert_nrf_callback(uint16_t line_num, const uint8_t * p_file_name)
     app_error_handler(DEAD_BEEF, line_num, p_file_name);
 }
 
+
 /**@brief Function for initializing the Advertising functionality.
  *
  * @details Encodes the required advertising data and passes it to the stack.
@@ -146,74 +146,12 @@ static void advertising_start(void)
 }
 
 
-static bool is_uuid_present(const ble_gap_evt_adv_report_t *p_adv_report)
-{
-    uint32_t index = 0; //关于report详解，参见“BLE central tutorial”中scanning部分内容
-    uint8_t *p_data = (uint8_t *)p_adv_report->data;
-
-    //ppp_data[31] = p_data;
-
-    while (index < p_adv_report->dlen)
-    {
-        uint8_t field_length = p_data[index];
-        uint8_t field_type   = p_data[index+1];
-
-			if ( field_type == BLE_GAP_AD_TYPE_MANUFACTURER_SPECIFIC_DATA)
-			{
-
-				uint8_t a=index+2;
-
-				while(a <= (index+field_length))
-				{
-					uint8_t field_data = p_data[a];
-					if(field_data == 0x61)
-					{
-						return true;
-					}
-					a++;
-				}
-			}
-
-            index += field_length + 1;
-    }
-    return false;
-}
-
-
-/**@brief Function for handling the Application's BLE Stack events.
- *
- * @param[in] p_ble_evt  Bluetooth stack event.
- */
-static void on_ble_evt(ble_evt_t * p_ble_evt)
-{
-    const ble_gap_evt_t * p_gap_evt = &p_ble_evt->evt.gap_evt;
-
-    switch (p_ble_evt->header.evt_id)
-    {
-        case BLE_GAP_EVT_ADV_REPORT:
-        {
-            const ble_gap_evt_adv_report_t * p_adv_report = &p_gap_evt->params.adv_report;
-
-            if (is_uuid_present(p_adv_report))
-            {
-            	//uint8_t const pp_data[31] = ppp_data[31];
-            	//nrf_drv_gpiote_out_toggle(BSP_LED_3); // 自己加的 因为一只在scan mode上，所以闪一下就又换到scan闪烁状态了。
-                //sd_ble_gap_adv_data_set(ppp_data, sizeof(ppp_data), NULL, 0);
-            }
-            break;
-        }
-
-        default:
-            break;
-    }
-}
-
-
 //自己加的
 void relay_adv_data(ble_evt_t * p_ble_evt)
 {
 	uint32_t index = 0;
-	uint8_t pp_data[31] = {0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00}; // 这个data必须是［31］
+	uint8_t pp_data[31] = {0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00};
+	// 这个data必须是［31］，不是的话sd_ble_gap_adv_data_set就不管用。
 	pp_data[0] = 0x1e;
 	pp_data[1] = 0xff;
 	ble_gap_evt_t * p_gap_evt = &p_ble_evt->evt.gap_evt;
@@ -247,6 +185,7 @@ void relay_adv_data(ble_evt_t * p_ble_evt)
 
 }
 
+
 /**@brief Function for dispatching a BLE stack event to all modules with a BLE stack event handler.
  *
  * @details This function is called from the scheduler in the main loop after a BLE stack event has
@@ -256,7 +195,6 @@ void relay_adv_data(ble_evt_t * p_ble_evt)
  */
 static void ble_evt_dispatch(ble_evt_t * p_ble_evt)
 {
-    on_ble_evt(p_ble_evt);
     relay_adv_data(p_ble_evt);
 }
 
@@ -350,9 +288,6 @@ int main(void)
     err_code = NRF_LOG_INIT(NULL);
     APP_ERROR_CHECK(err_code);
 
-    //APP_TIMER_INIT(APP_TIMER_PRESCALER, APP_TIMER_OP_QUEUE_SIZE, false);
-    //err_code = bsp_init(BSP_INIT_LED, APP_TIMER_TICKS(100, APP_TIMER_PRESCALER), NULL);
-    //APP_ERROR_CHECK(err_code);
     ble_stack_init();
     gpio_config();
     advertising_init();
@@ -364,8 +299,6 @@ int main(void)
     // Enter main loop.
     for (;; )
     {
-
-
         if (NRF_LOG_PROCESS() == false)
         {
             power_manage();

@@ -213,7 +213,9 @@ static void on_ble_evt(ble_evt_t * p_ble_evt)
 void relay_adv_data(ble_evt_t * p_ble_evt)
 {
 	uint32_t index = 0;
-	uint8_t pp_data[31]={0x1e,0xff,0x01,0x00}; // 这个data必须是［31］
+	uint8_t pp_data[31] = {0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00}; // 这个data必须是［31］
+	pp_data[0] = 0x1e;
+	pp_data[1] = 0xff;
 	ble_gap_evt_t * p_gap_evt = &p_ble_evt->evt.gap_evt;
 	ble_gap_evt_adv_report_t * p_adv_report = &p_gap_evt->params.adv_report;
 	uint8_t *p_data = (uint8_t *)p_adv_report->data;
@@ -225,19 +227,17 @@ void relay_adv_data(ble_evt_t * p_ble_evt)
 				if ( field_type == BLE_GAP_AD_TYPE_MANUFACTURER_SPECIFIC_DATA)
 				{
 
-					uint8_t a=index+2;
+					uint8_t a = index+2;
+					uint8_t b = 2;
 
 					while(a <= (index+field_length))
 					{
-						uint8_t field_data = p_data[a];
-						if(field_data == 0x61)
-						{
-							nrf_drv_gpiote_out_toggle(BSP_LED_3);
-							//sd_ble_gap_scan_stop();
-							sd_ble_gap_adv_data_set(pp_data, sizeof(pp_data), NULL, 0);
-						}
+						pp_data[b] = p_data[a];
 						a++;
+						b++;
 					}
+					sd_ble_gap_adv_data_set(pp_data, sizeof(pp_data), NULL, 0);
+					nrf_drv_gpiote_out_toggle(BSP_LED_3);
 				}
 
 	            index += field_length + 1;

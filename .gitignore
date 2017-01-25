@@ -23,6 +23,3 @@ pca10040/s132/armgcc/.project
 
 *.xml
 
-*.ld
-
-*.h

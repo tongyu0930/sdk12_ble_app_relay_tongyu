@@ -57,6 +57,7 @@
 #define SCAN_TIMEOUT            0x0000                          /**< Timout when scanning. 0x0000 disables timeout. */
 
 //volatile uint8_t *ppp_data[31];
+static bool button1_pressed = false;
 
 static ble_gap_adv_params_t m_adv_params;                                 /**< Parameters to be passed to the stack when starting advertising. */
 
@@ -137,12 +138,8 @@ static void advertising_init(void)
 static void advertising_start(void)
 {
     uint32_t err_code;
-    //uint8_t const pp_data[31]={0x1e,0xff,0x01,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x61,0x67,0xF7,0xDB,0x34,0xC4,0x03,0x8E,0x5C,0x0B,0xAA,0x97,0x30,0X56,0xE6};
     err_code = sd_ble_gap_adv_start(&m_adv_params); // 括号里面的是个全局变量吗？
     APP_ERROR_CHECK(err_code);
-
-    //sd_ble_gap_adv_data_set(pp_data, sizeof(pp_data), NULL, 0); // 好像这句话在这里没有用。
-    //APP_ERROR_CHECK(err_code);
 }
 
 
@@ -150,13 +147,14 @@ static void advertising_start(void)
 void relay_adv_data(ble_evt_t * p_ble_evt)
 {
 	uint32_t index = 0;
-	uint8_t pp_data[31] = {0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00};
+	//uint8_t pp_data[31] = {0x00,0xFF,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00};
 	// 这个data必须是［31］，不是的话sd_ble_gap_adv_data_set就不管用。
-	pp_data[0] = 0x1e;
-	pp_data[1] = 0xff;
+	//pp_data[0] = 0x1e;
+	//pp_data[1] = 0xff;
 	ble_gap_evt_t * p_gap_evt = &p_ble_evt->evt.gap_evt;
-	ble_gap_evt_adv_report_t * p_adv_report = &p_gap_evt->params.adv_report;
+	ble_gap_evt_adv_report_t * p_adv_report = &p_gap_evt->params.adv_report; // 这个report里还有peer地址，信号强度等可以利用的信息。
 	uint8_t *p_data = (uint8_t *)p_adv_report->data;
+
 	while (index < p_adv_report->dlen)
 	    {
 	        uint8_t field_length = p_data[index];
@@ -164,16 +162,22 @@ void relay_adv_data(ble_evt_t * p_ble_evt)
 
 				if ( field_type == BLE_GAP_AD_TYPE_MANUFACTURER_SPECIFIC_DATA)
 				{
-
+					uint8_t c = field_length +1;
+					uint8_t pp_data[c];
 					uint8_t a = index+2;
 					uint8_t b = 2;
+
+					pp_data[0] = field_length; // 你要relay的数据的长度和你扫描到的一样长
+					pp_data[1] = field_type;
 
 					while(a <= (index+field_length))
 					{
 						pp_data[b] = p_data[a];
+						NRF_LOG_INFO("p_data = %x\r\n", p_data[a]);
 						a++;
 						b++;
 					}
+
 					sd_ble_gap_adv_data_set(pp_data, sizeof(pp_data), NULL, 0);
 					nrf_drv_gpiote_out_toggle(BSP_LED_3);
 				}
@@ -234,10 +238,15 @@ static void ble_stack_init(void)
 void in_pin_handler(nrf_drv_gpiote_pin_t pin, nrf_gpiote_polarity_t action) //这个东西就是当设置的input被激发时，所唤起的function
                                                                             //这里的“action”有三种actions，是哪一种啊？
 {
+	if(!button1_pressed)
+	{
     //sd_ble_gap_adv_stop(); // 如果去掉这句话，按下按键1，系统就会自动不断的切换广播和扫描。
     uint32_t err_code;
     err_code = sd_ble_gap_scan_start(&m_scan_params);
     APP_ERROR_CHECK(err_code);
+    NRF_LOG_INFO("OK\r\n");
+    button1_pressed = true;
+	}
 }
 
 
@@ -293,7 +302,8 @@ int main(void)
     advertising_init();
 
     // Start execution.
-    NRF_LOG_INFO("BLE Beacon started\r\n");
+    NRF_LOG_INFO("TONG_YU RELAY START\r\n");
+    NRF_LOG_INFO("Press button 1 to start scan\r\n");
     advertising_start();
 
     // Enter main loop.
